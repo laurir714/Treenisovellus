@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Treeni Master Pro v30</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1c1c1e">
+    <link rel="icon" type="image/png" href="icon.png">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Treeni Master">
+    <link rel="apple-touch-icon" href="icon.png">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { 
+            --bg: #000; --card: #1c1c1e; --primary: #0a84ff; --error: #ff453a; --success: #30d158; 
+            --text: #fff; --input-bg: #2c2c2e; --border: #333; 
+        }
+        [data-theme="light"] { 
+            --bg: #f2f2f7; --card: #ffffff; --text: #000; 
+            --input-bg: #e5e5ea; --border: #ddd; 
+        }
+
+        body { 
+            font-family: -apple-system, sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+            padding: 10px; 
+            margin: 0; 
+            transition: background 0.3s, color 0.3s; 
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        .card { background: var(--card); padding: 15px; border-radius: 16px; margin-bottom: 12px; position: relative; transition: background 0.3s; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        
+        select, input, button { 
+            width: 100%; 
+            padding: 12px; 
+            margin: 5px 0; 
+            border-radius: 10px; 
+            border: none; 
+            background: var(--input-bg); 
+            color: var(--text); 
+            font-size: 16px; 
+            box-sizing: border-box; 
+            transition: background 0.3s, color 0.3s; 
+            -webkit-user-select: auto;
+            user-select: auto;
+        }
+        button { background: var(--primary); font-weight: bold; cursor: pointer; transition: background 0.3s; color: #fff; }
+        
+        /* Uusi tyyli teemanapille */
+        .theme-toggle-btn {
+            background: var(--input-bg);
+            border-radius: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 45px;
+            flex-shrink: 0; /* Estää nappia kutistumasta */
+            transition: background 0.3s;
+        }
+
+        .row { display: grid; grid-template-columns: 30px 1fr 1fr 45px; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .fail-label { display: flex; align-items: center; gap: 5px; font-size: 14px; font-weight: bold; color: var(--error); }
+        .timer-row { display: flex; gap: 8px; align-items: center; margin-bottom: 15px; background: var(--input-bg); padding: 10px; border-radius: 10px; transition: background 0.3s; }
+        .timer-row button { margin: 0; padding: 10px; font-size: 14px; background: #555; flex: 1; }
+        #timerDisplay { font-size: 22px; font-weight: bold; color: var(--success); min-width: 60px; text-align: center; }
+        .chart-container { height: 250px; }
+        .history-item { border-bottom: 1px solid var(--border); padding: 10px 0; font-size: 14px; position: relative; padding-right: 75px; transition: border-color 0.3s; }
+        .fail-text { color: var(--error); margin-left: 2px; }
+        .delete-btn { position: absolute; right: 0; top: 10px; width: 30px; height: 30px; padding: 0; margin: 0; background: var(--error); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; color: #fff; }
+        .edit-btn { position: absolute; right: 35px; top: 10px; width: 30px; height: 30px; padding: 0; margin: 0; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; color: #fff; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div style="display: flex; gap: 8px; margin-bottom: 10px; align-items: stretch;">
+        <select id="exerciseSelect" onchange="updateInputs(); updateView();" style="flex: 2; margin: 0;"></select>
+        <select id="metricSelect" onchange="updateView()" style="flex: 1.5; color: var(--success); margin: 0;">
+            <option value="max">Sarjat</option>
+            <option value="e1rm">Maksimi</option>
+            <option value="vol">Volyymi</option>
+        </select>
+        <div class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn">🌙</div>
+    </div>
+    <div class="chart-container"><canvas id="progressChart"></canvas></div>
+</div>
+
+<div class="card">
+    <div class="timer-row">
+        <button onclick="startTimer(90)">1:30</button>
+        <button onclick="startTimer(120)">2:00</button>
+        <button onclick="startTimer(180)">3:00</button>
+        <div id="timerDisplay">0:00</div>
+    </div>
+    <input type="date" id="dateInput">
+    <div class="row"><span>S1</span><input type="number" id="w1" placeholder="kg"><input type="number" id="r1" value="10"><label class="fail-label"><input type="checkbox" id="f1">F</label></div>
+    <div class="row"><span>S2</span><input type="number" id="w2" placeholder="kg"><input type="number" id="r2" value="8"><label class="fail-label"><input type="checkbox" id="f2">F</label></div>
+    <div class="row"><span>S3</span><input type="number" id="w3" placeholder="kg"><input type="number" id="r3" value="6"><label class="fail-label"><input type="checkbox" id="f3">F</label></div>
+    <input type="text" id="notes" placeholder="Treeni-muistiinpanot...">
+    <button id="saveBtn" onclick="saveEntry()">Tallenna Tulos</button>
+</div>
+
+<div class="card">
+    <h3 style="margin:0 0 10px 0; font-size:16px;">Datan hallinta</h3>
+    <button style="background:#555" onclick="exportData()">Vie varmuuskopio (.json)</button>
+    <button style="background:#555" onclick="document.getElementById('fileInput').click()">Tuo varmuuskopio</button>
+    <input type="file" id="fileInput" style="display:none" onchange="importData(event)">
+</div>
+
+<div class="card" id="historyCard">
+    <h3 style="margin:0 0 10px 0; font-size:16px;">Historia</h3>
+    <div id="historyList"></div>
+</div>
+
+<script>
+const exercises = [
+    "Takakyykky", "Bulgarian split squat", "Kulmasoutu", "Dipit", "Turkkilainen", 
+    "Mave", "Penkki", "Työntö", "Hauis kp", "Kk ympäri polvillaan", 
+    "Etukyykky zombi", "Pin squat", "Leuanveto", "Kapea penkki", "Farmarikävely", 
+    "Zercher mave", "Rinta vinopenkki kp", "Clean & press kk", "Hauis Mutkatanko", 
+    "Vatsat taljassa mave pääty", "Zercher kyykky", "Askelkyykky", "Gorilla rows", 
+    "Ranskalainen penkki", "Jalan nostot tangossa roikkuen", "Suorin jaloin mave", 
+    "Yhden käden penkki", "Landmine press", "Kapea leuanveto", "Vatsarulla"
+];
+
+const rawData = {
+    "Takakyykky": { "r": [10, 8, 6], "m1": [60,65,70], "m2": [62.5,67.5,72.5], "m3": [65,70,75] },
+    "Bulgarian split squat": { "r": [10, 8, 6], "m1": [25,27.5,27.5], "m2": [25,25,25], "m3": [22,22.5,25] },
+    "Kulmasoutu": { "r": [10, 8, 6], "m1": [60,65,70], "m2": [62.5,67.5,72.5], "m3": [65,70,75] },
+    "Dipit": { "r": [10, 8, 6], "m1": [0,0,0], "m2": [0,5,7.5], "m3": [5,7.5,10] },
+    "Turkkilainen": { "r": [10, 8, 6], "m1": [5,8,12], "m2": [8,12,16], "m3": [10,12.5,15] },
+    "Mave": { "r": [8, 6, 4], "m1": [95,100,105], "m2": [90,100,110], "m3": [95,105,115] },
+    "Penkki": { "r": [10, 8, 6], "m1": [0,0,0], "m2": [55,60,65], "m3": [57.5,62.5,67.5] },
+    "Työntö": { "r": [10, 8, 6], "m1": [25,27.5,30], "m2": [27.5,30,32.5], "m3": [30,32.5,35] },
+    "Hauis kp": { "r": [10, 8, 6], "m1": [12.5,15,17.5], "m2": [12.5,15,17.5], "m3": [15,15,17.5] },
+    "Kk ympäri polvillaan": { "r": [20, 20, 20], "m1": [16,24,28], "m2": [20,24,28], "m3": [24,28,28] },
+    "Etukyykky zombi": { "r": [10, 8, 6], "m1": [40,40,45], "m2": [40,45,50], "m3": [40,0,0] },
+    "Pin squat": { "r": [8, 6, 4], "m1": [40,42.5,45], "m2": [42.5,47.5,50], "m3": [0,0,0] },
+    "Leuanveto": { "r": [10, 8, 6], "m1": [7,7,6], "m2": [7,7,6], "m3": [0,0,0] },
+    "Kapea penkki": { "r": [10, 8, 6], "m1": [40,45,50], "m2": [42.5,47.5,52.5], "m3": [0,0,0] },
+    "Farmarikävely": { "r": [60, 60, 60], "m1": [25,27.5,27.5], "m2": [25,27.5,30], "m3": [0,0,0] },
+    "Zercher mave": { "r": [8, 6, 4], "m1": [50,55,60], "m2": [55,60,65], "m3": [0,0,0] },
+    "Rinta vinopenkki kp": { "r": [10, 8, 6], "m1": [45,50,55], "m2": [45,50,55], "m3": [0,0,0] },
+    "Clean & press kk": { "r": [10, 8, 6], "m1": [12,16,16], "m2": [12,16,20], "m3": [0,0,0] },
+    "Hauis Mutkatanko": { "r": [10, 8, 6], "m1": [35,35,40], "m2": [35,37.5,40], "m3": [0,0,0] },
+    "Vatsat taljassa mave pääty": { "r": [10, 8, 6], "m1": [23,29,32], "m2": [29,32,35], "m3": [0,0,0] },
+    "Zercher kyykky": { "r": [10, 8, 6], "m1": [50,55,60], "m2": [50,55,60], "m3": [0,0,0] },
+    "Askelkyykky": { "r": [10, 8, 6], "m1": [40,45,50], "m2": [40,45,50], "m3": [0,0,0] },
+    "Gorilla rows": { "r": [10, 8, 6], "m1": [17.5,20,22.5], "m2": [20,22.5,25], "m3": [0,0,0] },
+    "Ranskalainen penkki": { "r": [10, 8, 6], "m1": [27.5,30,32.5], "m2": [27.5,30,32.5], "m3": [0,0,0] },
+    "Jalan nostot tangossa roikkuen": { "r": [10, 8, 6], "m1": [0,0,0], "m2": [10,6,5], "m3": [0,0,0] },
+    "Suorin jaloin mave": { "r": [10, 8, 6], "m1": [70,80,90], "m2": [75,85,95], "m3": [0,0,0] },
+    "Yhden käden penkki": { "r": [10, 8, 6], "m1": [20,22.5,25], "m2": [22.5,25,27.5], "m3": [0,0,0] },
+    "Landmine press": { "r": [10, 8, 6], "m1": [15,20,21.1], "m2": [15,17.5,20], "m3": [0,0,0] },
+    "Kapea leuanveto": { "r": [10, 8, 6], "m1": [0,0,0], "m2": [8,6,4], "m3": [0,0,0] },
+    "Vatsarulla": { "r": [10, 8, 6], "m1": [10,9,8], "m2": [0,0,0], "m3": [0,0,0] }
+};
+
+const dates = {
+    m1: ["2026-01-06", "2026-01-09", "2026-01-13", "2026-01-16", "2026-01-27", "2026-01-30"],
+    m2: ["2026-02-03", "2026-02-06", "2026-02-17", "2026-02-20", "2026-02-24", "2026-02-27"],
+    m3: ["2026-03-03", "2026-03-06", "2026-03-10", "2026-03-13"]
+};
+
+let gymData = JSON.parse(localStorage.getItem('gymData_v29'));
+let timerInterval = null; 
+let editingIndex = null; 
+
+if (!gymData) {
+    gymData = {};
+    exercises.forEach(ex => gymData[ex] = []);
+    
+    for (let i = 0; i < exercises.length; i++) {
+        let ex = exercises[i];
+        let workoutIndex = Math.floor(i / 5); 
+        
+        ['m1', 'm2', 'm3'].forEach(m => {
+            let w = rawData[ex][m];
+            let d = dates[m][workoutIndex];
+            
+            if (!d || !w || (w[0] === 0 && w[1] === 0 && w[2] === 0)) {
+                return; 
+            }
+            
+            gymData[ex].push({
+                pvm: d, notes: "",
+                s1: { w: w[0], r: rawData[ex].r[0], f: false },
+                s2: { w: w[1], r: rawData[ex].r[1], f: false },
+                s3: { w: w[2], r: rawData[ex].r[2], f: false }
+            });
+        });
+    }
+    localStorage.setItem('gymData_v29', JSON.stringify(gymData));
+}
+
+let myChart = null;
+function calcE1RM(w, r) { return (w > 0 && r > 0) ? Math.round(w * (1 + r / 30)) : 0; }
+
+function init() {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    // Näytetään vain ikoni tekstin sijaan
+    document.getElementById('themeBtn').innerText = savedTheme === 'light' ? '☀️' : '🌙';
+
+    document.getElementById('dateInput').valueAsDate = new Date();
+    const select = document.getElementById('exerciseSelect');
+    
+    exercises.forEach(ex => { 
+        let o = document.createElement('option'); o.value = ex; o.text = ex; select.appendChild(o); 
+    });
+    
+    updateInputs();
+    updateView();
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const target = current === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', target);
+    localStorage.setItem('theme', target);
+    // Näytetään vain ikoni tekstin sijaan
+    document.getElementById('themeBtn').innerText = target === 'light' ? '☀️' : '🌙';
+    updateView();
+}
+
+function updateInputs() {
+    const ex = document.getElementById('exerciseSelect').value;
+    
+    editingIndex = null;
+    const saveBtn = document.getElementById('saveBtn');
+    saveBtn.innerText = "Tallenna Tulos";
+    saveBtn.style.background = "var(--primary)";
+    
+    if (rawData[ex]) {
+        document.getElementById('r1').value = rawData[ex].r[0];
+        document.getElementById('r2').value = rawData[ex].r[1];
+        document.getElementById('r3').value = rawData[ex].r[2];
+        document.getElementById('notes').value = "";
+        document.getElementById('f1').checked = false;
+        document.getElementById('f2').checked = false;
+        document.getElementById('f3').checked = false;
+    }
+}
+
+function updateView() {
+    const ex = document.getElementById('exerciseSelect').value;
+    const metric = document.getElementById('metricSelect').value;
+    const ctx = document.getElementById('progressChart').getContext('2d');
+    
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const textColor = isLight ? '#000' : '#fff';
+    const gridColor = isLight ? '#e5e5ea' : '#333';
+    
+    if(myChart) myChart.destroy();
+
+    let entries = gymData[ex] || [];
+    entries.sort((a,b) => new Date(a.pvm) - new Date(b.pvm));
+    
+    let labels = entries.map(e => e.pvm.split('-').reverse().slice(0,2).join('.'));
+    let datasets = [];
+    const failColor = '#ff453a';
+
+    if (metric === 'vol') {
+        datasets = [{
+            label: 'Kokonaisvolyymi (kg)',
+            data: entries.map(e => (e.s1.w * e.s1.r) + (e.s2.w * e.s2.r) + (e.s3.w * e.s3.r)),
+            borderColor: '#0a84ff',
+            tension: 0.1, borderWidth: 3, pointBackgroundColor: '#0a84ff'
+        }];
+    } else if (metric === 'max') {
+        datasets = [
+            { 
+                label: 'S1', data: entries.map(e => e.s1.w), borderColor: '#0a84ff', tension: 0.1, borderWidth: 2, 
+                pointBackgroundColor: entries.map(e => e.s1.f ? failColor : '#0a84ff'),
+                pointRadius: entries.map(e => e.s1.f ? 6 : 4)
+            },
+            { 
+                label: 'S2', data: entries.map(e => e.s2.w), borderColor: '#30d158', tension: 0.1, borderWidth: 2, 
+                pointBackgroundColor: entries.map(e => e.s2.f ? failColor : '#30d158'),
+                pointRadius: entries.map(e => e.s2.f ? 6 : 4)
+            },
+            { 
+                label: 'S3', data: entries.map(e => e.s3.w), borderColor: '#ff9f0a', tension: 0.1, borderWidth: 2, 
+                pointBackgroundColor: entries.map(e => e.s3.f ? failColor : '#ff9f0a'),
+                pointRadius: entries.map(e => e.s3.f ? 6 : 4)
+            }
+        ];
+    } else if (metric === 'e1rm') {
+        datasets = [{
+            label: 'Maksimi',
+            data: entries.map(e => Math.max(calcE1RM(e.s1.w, e.s1.r), calcE1RM(e.s2.w, e.s2.r), calcE1RM(e.s3.w, e.s3.r))),
+            borderColor: '#30d158',
+            tension: 0.1, borderWidth: 3, pointBackgroundColor: '#30d158'
+        }];
+    }
+    
+    const hList = document.getElementById('historyList');
+    hList.innerHTML = '';
+    
+    for (let i = entries.length - 1; i >= 0; i--) {
+        let e = entries[i];
+        let notesHtml = e.notes ? `<div style="font-style:italic; color:#888; font-size:12px;">${e.notes}</div>` : '';
+        hList.innerHTML += `<div class="history-item">
+            <button class="edit-btn" onclick="editEntry(${i})">✎</button>
+            <button class="delete-btn" onclick="deleteEntry(${i})">X</button>
+            <strong>${e.pvm.split('-').reverse().join('.')}</strong><br>
+            ${e.s1.w}x${e.s1.r}${e.s1.f?'<b class="fail-text">F</b>':''} | 
+            ${e.s2.w}x${e.s2.r}${e.s2.f?'<b class="fail-text">F</b>':''} | 
+            ${e.s3.w}x${e.s3.r}${e.s3.f?'<b class="fail-text">F</b>':''}
+            ${notesHtml}
+        </div>`;
+    }
+    
+    myChart = new Chart(ctx, { 
+        type: 'line', 
+        data: { labels, datasets }, 
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false,
+            scales: { 
+                y: { beginAtZero: false, grid: { color: gridColor }, ticks: { color: textColor } },
+                x: { grid: { display: false }, ticks: { color: textColor } }
+            },
+            plugins: {
+                legend: { labels: { color: textColor } }
+            }
+        } 
+    });
+}
+
+function editEntry(index) {
+    const ex = document.getElementById('exerciseSelect').value;
+    const entry = gymData[ex][index];
+    
+    document.getElementById('dateInput').value = entry.pvm;
+    document.getElementById('notes').value = entry.notes || "";
+    
+    document.getElementById('w1').value = entry.s1.w;
+    document.getElementById('r1').value = entry.s1.r;
+    document.getElementById('f1').checked = entry.s1.f;
+    
+    document.getElementById('w2').value = entry.s2.w;
+    document.getElementById('r2').value = entry.s2.r;
+    document.getElementById('f2').checked = entry.s2.f;
+    
+    document.getElementById('w3').value = entry.s3.w;
+    document.getElementById('r3').value = entry.s3.r;
+    document.getElementById('f3').checked = entry.s3.f;
+    
+    editingIndex = index;
+    
+    const saveBtn = document.getElementById('saveBtn');
+    saveBtn.innerText = "Päivitä Tulos";
+    saveBtn.style.background = "var(--success)";
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function saveEntry() {
+    const ex = document.getElementById('exerciseSelect').value;
+    if(!gymData[ex]) gymData[ex] = [];
+    
+    const newEntry = {
+        pvm: document.getElementById('dateInput').value,
+        notes: document.getElementById('notes').value,
+        s1: { w: parseFloat(document.getElementById('w1').value)||0, r: parseInt(document.getElementById('r1').value)||0, f: document.getElementById('f1').checked },
+        s2: { w: parseFloat(document.getElementById('w2').value)||0, r: parseInt(document.getElementById('r2').value)||0, f: document.getElementById('f2').checked },
+        s3: { w: parseFloat(document.getElementById('w3').value)||0, r: parseInt(document.getElementById('r3').value)||0, f: document.getElementById('f3').checked }
+    };
+    
+    if (editingIndex !== null) {
+        gymData[ex][editingIndex] = newEntry;
+        
+        editingIndex = null;
+        const saveBtn = document.getElementById('saveBtn');
+        saveBtn.innerText = "Tallenna Tulos";
+        saveBtn.style.background = "var(--primary)";
+        
+        document.getElementById('f1').checked = false;
+        document.getElementById('f2').checked = false;
+        document.getElementById('f3').checked = false;
+    } else {
+        gymData[ex].push(newEntry);
+    }
+    
+    localStorage.setItem('gymData_v29', JSON.stringify(gymData));
+    updateView();
+}
+
+function deleteEntry(index) {
+    if(confirm("Haluatko varmasti poistaa tämän treenin?")) {
+        const ex = document.getElementById('exerciseSelect').value;
+        gymData[ex].splice(index, 1);
+        
+        if (editingIndex === index) {
+            updateInputs();
+        }
+        
+        localStorage.setItem('gymData_v29', JSON.stringify(gymData));
+        updateView();
+    }
+}
+
+function exportData() {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(gymData));
+    const dl = document.createElement('a');
+    dl.setAttribute("href", dataStr); dl.setAttribute("download", "treenidata.json"); dl.click();
+}
+
+function importData(e) {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        gymData = JSON.parse(event.target.result);
+        localStorage.setItem('gymData_v29', JSON.stringify(gymData));
+        updateView();
+    };
+    reader.readAsText(e.target.files[0]);
+}
+
+function startTimer(sec) {
+    if (timerInterval) clearInterval(timerInterval);
+    
+    let t = sec;
+    const display = document.getElementById('timerDisplay');
+    display.innerText = Math.floor(t/60) + ":" + (t%60).toString().padStart(2, '0');
+    
+    timerInterval = setInterval(() => {
+        t--;
+        display.innerText = Math.floor(t/60) + ":" + (t%60).toString().padStart(2, '0');
+        if(t <= 0) { clearInterval(timerInterval); if(navigator.vibrate) navigator.vibrate(500); }
+    }, 1000);
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
