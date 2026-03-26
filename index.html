@@ -102,9 +102,9 @@
         <div id="timerDisplay">0:00</div>
     </div>
     <input type="date" id="dateInput">
-    <div class="row"><span>S1</span><button type="button" onclick="adjustWeight('w1', -2.5)">-2.5</button><input type="number" id="w1" placeholder="kg" step="2.5"><button type="button" onclick="adjustWeight('w1', 2.5)">+2.5</button><input type="number" id="r1" value="10"><label class="fail-label"><input type="checkbox" id="f1">F</label></div>
-    <div class="row"><span>S2</span><button type="button" onclick="adjustWeight('w2', -2.5)">-2.5</button><input type="number" id="w2" placeholder="kg" step="2.5"><button type="button" onclick="adjustWeight('w2', 2.5)">+2.5</button><input type="number" id="r2" value="8"><label class="fail-label"><input type="checkbox" id="f2">F</label></div>
-    <div class="row"><span>S3</span><button type="button" onclick="adjustWeight('w3', -2.5)">-2.5</button><input type="number" id="w3" placeholder="kg" step="2.5"><button type="button" onclick="adjustWeight('w3', 2.5)">+2.5</button><input type="number" id="r3" value="6"><label class="fail-label"><input type="checkbox" id="f3">F</label></div>
+    <div class="row"><span>S1</span><input type="number" id="w1" placeholder="kg" step="2.5"><input type="number" id="r1" value="10"><label class="fail-label"><input type="checkbox" id="f1">F</label></div>
+    <div class="row"><span>S2</span><input type="number" id="w2" placeholder="kg" step="2.5"><input type="number" id="r2" value="8"><label class="fail-label"><input type="checkbox" id="f2">F</label></div>
+    <div class="row"><span>S3</span><input type="number" id="w3" placeholder="kg" step="2.5"><input type="number" id="r3" value="6"><label class="fail-label"><input type="checkbox" id="f3">F</label></div>
     <input type="text" id="notes" placeholder="Treeni-muistiinpanot...">
     <button id="saveBtn" onclick="saveEntry()">Tallenna Tulos</button>
 </div>
@@ -216,15 +216,6 @@ function getLatestWeights(ex) {
     };
 }
 
-function adjustWeight(inputId, delta) {
-    const el = document.getElementById(inputId);
-    if (!el) return;
-    let value = parseFloat(el.value) || 0;
-    value += delta;
-    if (value < 0) value = 0;
-    el.value = Number.isInteger(value) ? value : Math.round(value * 10) / 10;
-}
-
 function init() {
     const savedTheme = localStorage.getItem('theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
@@ -330,7 +321,7 @@ function updateView() {
     
     const hList = document.getElementById('historyList');
     hList.innerHTML = '';
-
+    
     for (let i = entries.length - 1; i >= 0; i--) {
         let e = entries[i];
         let notesHtml = e.notes ? `<div style="font-style:italic; color:#888; font-size:12px;">${e.notes}</div>` : '';
