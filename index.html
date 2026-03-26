@@ -102,9 +102,9 @@
         <div id="timerDisplay">0:00</div>
     </div>
     <input type="date" id="dateInput">
-    <div class="row"><span>S1</span><input type="number" id="w1" placeholder="kg"><input type="number" id="r1" value="10"><label class="fail-label"><input type="checkbox" id="f1">F</label></div>
-    <div class="row"><span>S2</span><input type="number" id="w2" placeholder="kg"><input type="number" id="r2" value="8"><label class="fail-label"><input type="checkbox" id="f2">F</label></div>
-    <div class="row"><span>S3</span><input type="number" id="w3" placeholder="kg"><input type="number" id="r3" value="6"><label class="fail-label"><input type="checkbox" id="f3">F</label></div>
+    <div class="row"><span>S1</span><input type="number" id="w1" placeholder="kg" step="2.5"><input type="number" id="r1" value="10"><label class="fail-label"><input type="checkbox" id="f1">F</label></div>
+    <div class="row"><span>S2</span><input type="number" id="w2" placeholder="kg" step="2.5"><input type="number" id="r2" value="8"><label class="fail-label"><input type="checkbox" id="f2">F</label></div>
+    <div class="row"><span>S3</span><input type="number" id="w3" placeholder="kg" step="2.5"><input type="number" id="r3" value="6"><label class="fail-label"><input type="checkbox" id="f3">F</label></div>
     <input type="text" id="notes" placeholder="Treeni-muistiinpanot...">
     <button id="saveBtn" onclick="saveEntry()">Tallenna Tulos</button>
 </div>
@@ -205,6 +205,17 @@ if (!gymData) {
 let myChart = null;
 function calcE1RM(w, r) { return (w > 0 && r > 0) ? Math.round(w * (1 + r / 30)) : 0; }
 
+function getLatestWeights(ex) {
+    const entries = gymData[ex] || [];
+    if (entries.length === 0) return { w1: '', w2: '', w3: '' };
+    const last = entries[entries.length - 1];
+    return {
+        w1: last.s1.w || '',
+        w2: last.s2.w || '',
+        w3: last.s3.w || ''
+    };
+}
+
 function init() {
     const savedTheme = localStorage.getItem('theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
@@ -240,6 +251,11 @@ function updateInputs() {
     saveBtn.innerText = "Tallenna Tulos";
     saveBtn.style.background = "var(--primary)";
     
+    const latest = getLatestWeights(ex);
+    document.getElementById('w1').value = latest.w1;
+    document.getElementById('w2').value = latest.w2;
+    document.getElementById('w3').value = latest.w3;
+
     if (rawData[ex]) {
         document.getElementById('r1').value = rawData[ex].r[0];
         document.getElementById('r2').value = rawData[ex].r[1];
@@ -327,11 +343,11 @@ function updateView() {
             responsive: true, 
             maintainAspectRatio: false,
             scales: { 
-                y: { beginAtZero: false, grid: { color: gridColor }, ticks: { color: textColor } },
+                y: { beginAtZero: false, grid: { color: gridColor }, ticks: { color: textColor, stepSize: 2.5 } },
                 x: { grid: { display: false }, ticks: { color: textColor } }
             },
             plugins: {
-                legend: { labels: { color: textColor } }
+                legend: { labels: { color: textColor, usePointStyle: true, pointStyle: 'line' } }
             }
         } 
     });
@@ -365,6 +381,10 @@ function editEntry(index) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function roundStep(value, step = 2.5) {
+    return Math.round(value / step) * step;
+}
+
 function saveEntry() {
     const ex = document.getElementById('exerciseSelect').value;
     if(!gymData[ex]) gymData[ex] = [];
@@ -372,9 +392,9 @@ function saveEntry() {
     const newEntry = {
         pvm: document.getElementById('dateInput').value,
         notes: document.getElementById('notes').value,
-        s1: { w: parseFloat(document.getElementById('w1').value)||0, r: parseInt(document.getElementById('r1').value)||0, f: document.getElementById('f1').checked },
-        s2: { w: parseFloat(document.getElementById('w2').value)||0, r: parseInt(document.getElementById('r2').value)||0, f: document.getElementById('f2').checked },
-        s3: { w: parseFloat(document.getElementById('w3').value)||0, r: parseInt(document.getElementById('r3').value)||0, f: document.getElementById('f3').checked }
+        s1: { w: parseFloat(document.getElementById('w1').value) || 0, r: parseInt(document.getElementById('r1').value)||0, f: document.getElementById('f1').checked },
+        s2: { w: parseFloat(document.getElementById('w2').value) || 0, r: parseInt(document.getElementById('r2').value)||0, f: document.getElementById('f2').checked },
+        s3: { w: parseFloat(document.getElementById('w3').value) || 0, r: parseInt(document.getElementById('r3').value)||0, f: document.getElementById('f3').checked }
     };
     
     if (editingIndex !== null) {
