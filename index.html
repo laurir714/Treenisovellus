@@ -205,29 +205,6 @@ if (!gymData) {
 let myChart = null;
 function calcE1RM(w, r) { return (w > 0 && r > 0) ? Math.round(w * (1 + r / 30)) : 0; }
 
-function niceStep(range) {
-    const exponent = Math.floor(Math.log10(range));
-    const fraction = range / Math.pow(10, exponent);
-    let niceFraction;
-    if (fraction <= 1) niceFraction = 1;
-    else if (fraction <= 2) niceFraction = 2;
-    else if (fraction <= 2.5) niceFraction = 2.5;
-    else if (fraction <= 5) niceFraction = 5;
-    else niceFraction = 10;
-    return niceFraction * Math.pow(10, exponent);
-}
-
-function getDynamicYStep(values) {
-    const data = values.filter(v => typeof v === 'number' && !isNaN(v));
-    if (data.length === 0) return 2.5;
-    const min = Math.min(...data);
-    const max = Math.max(...data);
-    const range = Math.max(0.1, max - min);
-    const target = range / 6;
-    const step = Math.max(2.5, niceStep(target));
-    return step;
-}
-
 function getLatestWeights(ex) {
     const entries = gymData[ex] || [];
     if (entries.length === 0) return { w1: '', w2: '', w3: '' };
@@ -352,15 +329,17 @@ function updateView() {
     }
     
     const allValues = datasets.flatMap(d => d.data).filter(v => typeof v === 'number' && !isNaN(v));
-    let yMin = allValues.length ? Math.min(...allValues) : 0;
-    let yMax = allValues.length ? Math.max(...allValues) : 0;
+    const yMax = allValues.length ? Math.max(...allValues) : 10;
+    const yMin = 0;
 
-    yMin = Math.min(yMin, 0);
-    const yRange = yMax - yMin;
-    const yBuffer = Math.max(2.5, yRange * 0.1);
-    const yAxisMin = Math.max(0, yMin - yBuffer);
-    const yAxisMax = yMax + yBuffer;
-    const yStep = getDynamicYStep(allValues);
+    const rawRange = Math.max(1, yMax - yMin);
+    const buffer = Math.max(5, rawRange * 0.1);
+    let yAxisMax = yMax + buffer;
+
+    // Ruuvaa aina 2.5kg askelille päin, ettei iloista zoomia tule liikaa.
+    yAxisMax = Math.ceil(yAxisMax / 2.5) * 2.5;
+    const yAxisMin = 0;
+    const yStep = 2.5;
 
     const hList = document.getElementById('historyList');
     hList.innerHTML = '';
