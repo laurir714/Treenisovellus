@@ -328,20 +328,8 @@ function updateView() {
         }];
     }
     
-    const allValues = datasets.flatMap(d => d.data).filter(v => typeof v === 'number' && !isNaN(v));
-    const yMax = allValues.length ? Math.max(...allValues) : 10;
-    const yMin = 0;
-
-    const rawRange = Math.max(1, yMax - yMin);
-    const buffer = Math.max(5, rawRange * 0.1);
-    let yAxisMax = yMax + buffer;
-
-    // Ruuvaa aina 2.5kg askelille päin, ettei iloista zoomia tule liikaa.
-    yAxisMax = Math.ceil(yAxisMax / 2.5) * 2.5;
-    const yAxisMin = 0;
-    const yStep = 2.5;
-
     const hList = document.getElementById('historyList');
+    hList.innerHTML = '';
     hList.innerHTML = '';
     
     for (let i = entries.length - 1; i >= 0; i--) {
@@ -365,7 +353,7 @@ function updateView() {
             responsive: true, 
             maintainAspectRatio: false,
             scales: { 
-                y: { min: yAxisMin, max: yAxisMax, beginAtZero: false, grid: { color: gridColor }, ticks: { color: textColor, stepSize: yStep } },
+                y: { beginAtZero: false, grid: { color: gridColor }, ticks: { color: textColor, stepSize: 2.5 } },
                 x: { grid: { display: false }, ticks: { color: textColor } }
             },
             plugins: {
