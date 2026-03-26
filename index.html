@@ -102,9 +102,9 @@
         <div id="timerDisplay">0:00</div>
     </div>
     <input type="date" id="dateInput">
-    <div class="row"><span>S1</span><input type="number" id="w1" placeholder="kg" step="2.5"><input type="number" id="r1" value="10"><label class="fail-label"><input type="checkbox" id="f1">F</label></div>
-    <div class="row"><span>S2</span><input type="number" id="w2" placeholder="kg" step="2.5"><input type="number" id="r2" value="8"><label class="fail-label"><input type="checkbox" id="f2">F</label></div>
-    <div class="row"><span>S3</span><input type="number" id="w3" placeholder="kg" step="2.5"><input type="number" id="r3" value="6"><label class="fail-label"><input type="checkbox" id="f3">F</label></div>
+    <div class="row"><span>S1</span><button type="button" onclick="adjustWeight('w1', -2.5)">-2.5</button><input type="number" id="w1" placeholder="kg" step="2.5"><button type="button" onclick="adjustWeight('w1', 2.5)">+2.5</button><input type="number" id="r1" value="10"><label class="fail-label"><input type="checkbox" id="f1">F</label></div>
+    <div class="row"><span>S2</span><button type="button" onclick="adjustWeight('w2', -2.5)">-2.5</button><input type="number" id="w2" placeholder="kg" step="2.5"><button type="button" onclick="adjustWeight('w2', 2.5)">+2.5</button><input type="number" id="r2" value="8"><label class="fail-label"><input type="checkbox" id="f2">F</label></div>
+    <div class="row"><span>S3</span><button type="button" onclick="adjustWeight('w3', -2.5)">-2.5</button><input type="number" id="w3" placeholder="kg" step="2.5"><button type="button" onclick="adjustWeight('w3', 2.5)">+2.5</button><input type="number" id="r3" value="6"><label class="fail-label"><input type="checkbox" id="f3">F</label></div>
     <input type="text" id="notes" placeholder="Treeni-muistiinpanot...">
     <button id="saveBtn" onclick="saveEntry()">Tallenna Tulos</button>
 </div>
@@ -205,6 +205,29 @@ if (!gymData) {
 let myChart = null;
 function calcE1RM(w, r) { return (w > 0 && r > 0) ? Math.round(w * (1 + r / 30)) : 0; }
 
+function niceStep(range) {
+    const exponent = Math.floor(Math.log10(range));
+    const fraction = range / Math.pow(10, exponent);
+    let niceFraction;
+    if (fraction <= 1) niceFraction = 1;
+    else if (fraction <= 2) niceFraction = 2;
+    else if (fraction <= 2.5) niceFraction = 2.5;
+    else if (fraction <= 5) niceFraction = 5;
+    else niceFraction = 10;
+    return niceFraction * Math.pow(10, exponent);
+}
+
+function getDynamicYStep(values) {
+    const data = values.filter(v => typeof v === 'number' && !isNaN(v));
+    if (data.length === 0) return 2.5;
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    const range = Math.max(0.1, max - min);
+    const target = range / 6;
+    const step = Math.max(2.5, niceStep(target));
+    return step;
+}
+
 function getLatestWeights(ex) {
     const entries = gymData[ex] || [];
     if (entries.length === 0) return { w1: '', w2: '', w3: '' };
@@ -214,6 +237,15 @@ function getLatestWeights(ex) {
         w2: last.s2.w || '',
         w3: last.s3.w || ''
     };
+}
+
+function adjustWeight(inputId, delta) {
+    const el = document.getElementById(inputId);
+    if (!el) return;
+    let value = parseFloat(el.value) || 0;
+    value += delta;
+    if (value < 0) value = 0;
+    el.value = Number.isInteger(value) ? value : Math.round(value * 10) / 10;
 }
 
 function init() {
@@ -319,6 +351,17 @@ function updateView() {
         }];
     }
     
+    const allValues = datasets.flatMap(d => d.data).filter(v => typeof v === 'number' && !isNaN(v));
+    let yMin = allValues.length ? Math.min(...allValues) : 0;
+    let yMax = allValues.length ? Math.max(...allValues) : 0;
+
+    yMin = Math.min(yMin, 0);
+    const yRange = yMax - yMin;
+    const yBuffer = Math.max(2.5, yRange * 0.1);
+    const yAxisMin = Math.max(0, yMin - yBuffer);
+    const yAxisMax = yMax + yBuffer;
+    const yStep = getDynamicYStep(allValues);
+
     const hList = document.getElementById('historyList');
     hList.innerHTML = '';
     
@@ -343,7 +386,7 @@ function updateView() {
             responsive: true, 
             maintainAspectRatio: false,
             scales: { 
-                y: { beginAtZero: false, grid: { color: gridColor }, ticks: { color: textColor, stepSize: 2.5 } },
+                y: { min: yAxisMin, max: yAxisMax, beginAtZero: false, grid: { color: gridColor }, ticks: { color: textColor, stepSize: yStep } },
                 x: { grid: { display: false }, ticks: { color: textColor } }
             },
             plugins: {
